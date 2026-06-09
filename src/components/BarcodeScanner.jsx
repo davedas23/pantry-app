@@ -20,7 +20,15 @@ export default function BarcodeScanner({ onDetected, onClose }) {
 
         await scanner.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 240, height: 140 } },
+          {
+            fps: 10,
+            qrbox: { width: 240, height: 140 },
+            videoConstraints: {
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
           async (decodedText) => {
             // Guard against firing twice
             if (detectedRef.current) return;
@@ -98,9 +106,29 @@ export default function BarcodeScanner({ onDetected, onClose }) {
 
         {/* Camera view — keep mounted while scanning so stop() works cleanly */}
         <div style={{ display: status === "scanning" ? "block" : "none" }}>
-          <div id="qr-reader-container" style={{ width: "100%", borderRadius: "16px", overflow: "hidden", border: "2px solid #c8a96e40", background: "#1c1c1e" }} />
+          <div style={{ position: "relative", width: "100%", borderRadius: "16px", overflow: "hidden", border: "2px solid #c8a96e40", background: "#000", minHeight: "280px" }}>
+            <div
+              id="qr-reader-container"
+              style={{
+                width: "100%",
+                minHeight: "280px",
+              }}
+            />
+            {/* Aim overlay */}
+            <div style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{
+                width: "240px", height: "140px",
+                border: "2px solid #c8a96e",
+                borderRadius: "10px",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
+              }} />
+            </div>
+          </div>
           <div style={{ marginTop: "14px", textAlign: "center", color: "#6e6e73", fontSize: "13px" }}>
-            Supports UPC-A, UPC-E, EAN-13
+            Line up the barcode inside the box
           </div>
         </div>
 
