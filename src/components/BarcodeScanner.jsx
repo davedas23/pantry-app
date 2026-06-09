@@ -1,22 +1,21 @@
 // src/components/BarcodeScanner.jsx
-// Uses native browser APIs directly — more reliable on iPhone Safari
+// Uses native getUserMedia + BarcodeDetector — no external dependencies
 import { useEffect, useRef, useState } from "react";
 
 export default function BarcodeScanner({ onDetected, onClose }) {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const detectedRef = useRef(false);
-  const [status, setStatus] = useState("loading"); // loading | scanning | found | error
+  const [status, setStatus] = useState("loading");
   const [errorMsg, setErrorMsg] = useState(null);
+  const [manualBarcode, setManualBarcode] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function start() {
       try {
-        // Request camera stream
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: "environment" },
@@ -26,45 +25,39 @@ export default function BarcodeScanner({ onDetected, onClose }) {
           audio: false,
         });
 
-        if (cancelled) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
 
         streamRef.current = stream;
-
         const video = videoRef.current;
         video.srcObject = stream;
-        video.setAttribute("playsinline", "true"); // critical for iOS
+        video.setAttribute("playsinline", "true");
         await video.play();
 
         if (cancelled) return;
-        setStatus("scanning");
 
-        // Load barcode detector — use BarcodeDetector if available (Chrome),
-        // otherwise fall back to html5-qrcode scanning on canvas frames
         if ("BarcodeDetector" in window) {
           const detector = new window.BarcodeDetector({
             formats: ["upc_a", "upc_e", "ean_13", "ean_8", "code_128", "code_39"],
           });
-          scanWithDetector(detector, video, cancelled);
+          setStatus("scanning");
+          scan(detector, video, cancelled);
         } else {
-          // Fallback: use ZXing via canvas snapshots
-          scanWithZxing(video, cancelled);
+          // BarcodeDetector not available — show manual entry alongside camera
+          setStatus("manual");
         }
       } catch (err) {
         if (cancelled) return;
         const msg = err?.message || "";
         setErrorMsg(
           msg.includes("ermission")
-            ? "Camera access denied.\n\nGo to Settings → Safari → Camera and set it to Allow, then reload the app."
+            ? "Camera access denied.\n\nGo to Settings → Safari → Camera → Allow, then reload the app."
             : "Could not access camera. Make sure you're using Safari and try again."
         );
         setStatus("error");
       }
     }
 
-    async function scanWithDetector(detector, video, cancelled) {
+    function scan(detector, video, cancelled) {
       async function tick() {
         if (cancelled || detectedRef.current) return;
         try {
@@ -77,38 +70,6 @@ export default function BarcodeScanner({ onDetected, onClose }) {
         rafRef.current = requestAnimationFrame(tick);
       }
       rafRef.current = requestAnimationFrame(tick);
-    }
-
-    async function scanWithZxing(video, cancelled) {
-      try {
-        const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        const reader = new BrowserMultiFormatReader();
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-
-        function tick() {
-          if (cancelled || detectedRef.current) return;
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvas.width  = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            try {
-              const result = reader.decodeFromCanvas(canvas);
-              if (result) {
-                handleDetected(result.getText());
-                return;
-              }
-            } catch {}
-          }
-          rafRef.current = requestAnimationFrame(tick);
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      } catch {
-        // If zxing also unavailable, show manual entry prompt
-        setErrorMsg("Barcode scanning not supported in this browser. Please enter the item manually.");
-        setStatus("error");
-      }
     }
 
     function handleDetected(value) {
@@ -133,6 +94,14 @@ export default function BarcodeScanner({ onDetected, onClose }) {
     };
   }, [onDetected]);
 
+  function handleManualSubmit() {
+    if (manualBarcode.trim().length > 0) {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      setStatus("found");
+      setTimeout(() => onDetected(manualBarcode.trim()), 700);
+    }
+  }
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 200,
@@ -141,10 +110,8 @@ export default function BarcodeScanner({ onDetected, onClose }) {
       alignItems: "center", justifyContent: "center",
       padding: "24px",
     }}>
-      {/* Hidden canvas for fallback scanning */}
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-
       <div style={{ width: "100%", maxWidth: "420px" }}>
+
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <div>
@@ -171,40 +138,66 @@ export default function BarcodeScanner({ onDetected, onClose }) {
         )}
 
         {/* Video viewfinder */}
-        <div style={{ display: status === "scanning" ? "block" : "none", position: "relative", borderRadius: "16px", overflow: "hidden", background: "#000" }}>
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            style={{ width: "100%", display: "block", borderRadius: "16px" }}
-          />
-          {/* Aim box overlay */}
-          <div style={{
-            position: "absolute", inset: 0, pointerEvents: "none",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <div style={{
-              width: "72%", height: "130px",
-              border: "2px solid #c8a96e",
-              borderRadius: "10px",
-              boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
-            }}>
-              {/* Corner accents */}
-              {[
-                { top: -2, left: -2, borderTop: "3px solid #c8a96e", borderLeft: "3px solid #c8a96e" },
-                { top: -2, right: -2, borderTop: "3px solid #c8a96e", borderRight: "3px solid #c8a96e" },
-                { bottom: -2, left: -2, borderBottom: "3px solid #c8a96e", borderLeft: "3px solid #c8a96e" },
-                { bottom: -2, right: -2, borderBottom: "3px solid #c8a96e", borderRight: "3px solid #c8a96e" },
-              ].map((s, i) => (
-                <div key={i} style={{ position: "absolute", width: "16px", height: "16px", borderRadius: "2px", ...s }} />
-              ))}
+        {(status === "scanning" || status === "manual") && (
+          <div style={{ position: "relative", borderRadius: "16px", overflow: "hidden", background: "#000" }}>
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              style={{ width: "100%", display: "block", borderRadius: "16px" }}
+            />
+            {/* Aim box */}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{
+                width: "72%", height: "120px",
+                border: "2px solid #c8a96e",
+                borderRadius: "10px",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
+              }}>
+                {[
+                  { top: -2, left: -2, borderTop: "3px solid #c8a96e", borderLeft: "3px solid #c8a96e" },
+                  { top: -2, right: -2, borderTop: "3px solid #c8a96e", borderRight: "3px solid #c8a96e" },
+                  { bottom: -2, left: -2, borderBottom: "3px solid #c8a96e", borderLeft: "3px solid #c8a96e" },
+                  { bottom: -2, right: -2, borderBottom: "3px solid #c8a96e", borderRight: "3px solid #c8a96e" },
+                ].map((s, i) => (
+                  <div key={i} style={{ position: "absolute", width: "16px", height: "16px", borderRadius: "2px", ...s }} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {status === "scanning" && (
           <div style={{ marginTop: "12px", textAlign: "center", color: "#6e6e73", fontSize: "13px" }}>
-            Line up the barcode inside the box
+            Line up the barcode inside the box — it scans automatically
+          </div>
+        )}
+
+        {/* Manual entry fallback (when BarcodeDetector unavailable) */}
+        {status === "manual" && (
+          <div style={{ marginTop: "16px" }}>
+            <div style={{ textAlign: "center", color: "#f5c518", fontSize: "13px", marginBottom: "12px" }}>
+              Auto-scan unavailable in this browser — type the barcode number below
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input
+                type="number"
+                placeholder="e.g. 012345678901"
+                value={manualBarcode}
+                onChange={e => setManualBarcode(e.target.value)}
+                style={{
+                  flex: 1, background: "#2c2c2e", border: "1px solid #3a3a3c",
+                  borderRadius: "10px", padding: "10px 14px",
+                  color: "#f5f5f0", fontSize: "15px", outline: "none",
+                  fontFamily: "monospace",
+                }}
+              />
+              <button onClick={handleManualSubmit} style={{
+                padding: "10px 16px", borderRadius: "10px",
+                background: "#c8a96e", border: "none", color: "#111",
+                fontSize: "14px", fontWeight: 700, cursor: "pointer",
+              }}>Look up</button>
+            </div>
           </div>
         )}
 
@@ -237,6 +230,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
             }}>Enter manually instead</button>
           </div>
         )}
+
       </div>
     </div>
   );
