@@ -4,11 +4,12 @@ import { lookupBarcode } from "../barcodeLookup";
 import BarcodeScanner from "./BarcodeScanner";
 
 const CATEGORIES = ["Grains & Pasta","Canned Goods","Spices & Condiments","Snacks","Baking","Beverages","Frozen","Produce","Dairy","Other"];
-const EMPTY = { name:"", category:"Other", quantity:1, unit:"units", expiry:"", location:"", notes:"" };
+const EMPTY = { name:"", category:"Other", quantity:1, unit:"units", expiry:"", noExpiry:false, location:"", notes:"" };
 
 export default function ItemModal({ item, locations = [], onSave, onClose }) {
   const locationNames = locations.map(l => l.name);
   const [form, setForm]           = useState(item || { ...EMPTY, location: locationNames[0] || "" });
+  const [noExpiry, setNoExpiry]   = useState(item?.noExpiry || false);
   const [scanning, setScanning]   = useState(false);
   const [looking, setLooking]     = useState(false);
   const [lookupMsg, setLookupMsg] = useState(null);
@@ -67,9 +68,9 @@ export default function ItemModal({ item, locations = [], onSave, onClose }) {
           {!item && (
             <button onClick={() => setScanning(true)} disabled={looking} style={{
               width:"100%", padding:"13px", borderRadius:"14px", marginBottom:"16px",
-              background: looking ? "#2c2c2e" : "#1a2f4a",
-              border:`1px solid ${looking ? "#3a3a3c" : "#2a5a8c"}`,
-              color: looking ? "#6e6e73" : "#4a9edd",
+              background: looking ? "#2c2c2e" : "rgba(10,132,255,0.15)",
+              border:`1px solid ${looking ? "#3a3a3c" : "rgba(10,132,255,0.4)"}`,
+              color: looking ? "#6e6e73" : "#0a84ff",
               fontSize:"15px", fontWeight:700, cursor: looking ? "not-allowed" : "pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:"8px",
             }}>
@@ -121,10 +122,36 @@ export default function ItemModal({ item, locations = [], onSave, onClose }) {
 
           {/* Expiry */}
           <div style={{ marginBottom:"16px" }}>
-            <label style={label}>Expiry Date</label>
-            <input type="date" value={form.expiry}
-              onChange={e => set("expiry", e.target.value)}
-              style={{ ...input, fontFamily:"monospace" }} />
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+              <label style={{ ...label, marginBottom:0 }}>Expiry Date</label>
+              <label style={{ display:"flex", alignItems:"center", gap:"8px", cursor:"pointer", userSelect:"none" }}
+                onClick={() => {
+                  const next = !noExpiry;
+                  setNoExpiry(next);
+                  if (next) set("expiry", "");
+                }}>
+                <div style={{
+                  width:"20px", height:"20px", borderRadius:"6px", flexShrink:0,
+                  background: noExpiry ? "#c8a96e" : "#2c2c2e",
+                  border: `2px solid ${noExpiry ? "#c8a96e" : "#48484a"}`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s",
+                }}>
+                  {noExpiry && <span style={{ fontSize:"12px", color:"#111", fontWeight:800, lineHeight:1 }}>✓</span>}
+                </div>
+                <span style={{ fontSize:"12px", fontWeight:600, color: noExpiry ? "#c8a96e" : "#6e6e73" }}>No expiration</span>
+              </label>
+            </div>
+            {noExpiry ? (
+              <div style={{ ...input, display:"flex", alignItems:"center", gap:"8px", color:"#6e6e73", background:"#1c1c1e", border:"1px solid #2c2c2e" }}>
+                <span style={{ fontSize:"14px" }}>∞</span>
+                <span style={{ fontSize:"14px" }}>Does not expire</span>
+              </div>
+            ) : (
+              <input type="date" value={form.expiry}
+                onChange={e => set("expiry", e.target.value)}
+                style={{ ...input, fontFamily:"monospace" }} />
+            )}
           </div>
 
           {/* Category + Location */}
@@ -152,7 +179,7 @@ export default function ItemModal({ item, locations = [], onSave, onClose }) {
 
           <div style={{ display:"flex", gap:"10px" }}>
             <button onClick={onClose} style={{ flex:1, padding:"13px", borderRadius:"12px", background:"#2c2c2e", border:"none", color:"#8e8e93", fontSize:"15px", fontWeight:600, cursor:"pointer" }}>Cancel</button>
-            <button onClick={() => form.name.trim() && onSave({ ...form, quantity:Number(form.quantity) })} style={{ flex:2, padding:"13px", borderRadius:"12px", background:"#c8a96e", border:"none", color:"#111", fontSize:"15px", fontWeight:700, cursor:"pointer" }}>
+            <button onClick={() => form.name.trim() && onSave({ ...form, quantity:Number(form.quantity), noExpiry, expiry: noExpiry ? "" : form.expiry })} style={{ flex:2, padding:"13px", borderRadius:"12px", background:"linear-gradient(135deg, #0a84ff, #0066cc)", border:"none", color:"#fff", fontSize:"15px", fontWeight:700, cursor:"pointer", boxShadow:"0 4px 14px rgba(10,132,255,0.4)" }}>
               {item ? "Save Changes" : "Add Item"}
             </button>
           </div>
