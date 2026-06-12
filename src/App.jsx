@@ -64,6 +64,7 @@ export default function App() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showLocMgr, setShowLocMgr] = useState(false);
   const [syncing, setSyncing]       = useState(false);
+  const [toast, setToast]           = useState(null);
   const [isMobile, setIsMobile]     = useState(window.innerWidth < 768);
 
   const [locations, setLocations]   = useState(() => {
@@ -82,24 +83,47 @@ export default function App() {
     return () => window.removeEventListener("resize", handle);
   }, []);
 
+  function showToast(msg, type = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
   function saveLocations(list) {
     setLocations(list);
     localStorage.setItem("pantry-locations", JSON.stringify(list));
     setShowLocMgr(false);
+    showToast("Locations saved");
   }
 
   async function handleSave(form) {
+    const isNew = modal === "new";
+    // Close modal immediately — don't wait on Firebase
+    setModal(null);
     setSyncing(true);
     try {
-      if (modal === "new") await addItem(form);
+      if (isNew) await addItem(form);
       else await updateItem(modal.id, form);
-    } finally { setSyncing(false); setModal(null); }
+      showToast(isNew ? `"${form.name}" added` : `"${form.name}" updated`);
+    } catch {
+      showToast("Failed to save — check your connection", "error");
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleDelete(id) {
+    const item = items.find(i => i.id === id);
+    // Close confirm dialog immediately
+    setDeleteConfirm(null);
     setSyncing(true);
-    try { await deleteItem(id); }
-    finally { setSyncing(false); setDeleteConfirm(null); }
+    try {
+      await deleteItem(id);
+      showToast(`"${item?.name || "Item"}" removed`);
+    } catch {
+      showToast("Failed to delete — check your connection", "error");
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleQty(item, delta) {
@@ -411,6 +435,30 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position:"fixed", bottom:"32px", left:"50%", transform:"translateX(-50%)",
+          zIndex:300, pointerEvents:"none",
+          background: toast.type === "error" ? "#ff3b30" : "#1c1c1e",
+          border:`1px solid ${toast.type === "error" ? "#ff3b30" : "#34c75950"}`,
+          borderRadius:"40px", padding:"12px 24px",
+          display:"flex", alignItems:"center", gap:"10px",
+          boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+          animation:"slideUp 0.25s ease",
+        }}>
+          <span style={{ fontSize:"16px" }}>{toast.type === "error" ? "⚠️" : "✅"}</span>
+          <span style={{ fontSize:"14px", fontWeight:600, color: toast.type === "error" ? "#fff" : "#f5f5f0", whiteSpace:"nowrap" }}>{toast.msg}</span>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
