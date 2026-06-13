@@ -359,7 +359,7 @@ export default function App() {
               <div key={item.id} style={{ background:"#1c1c1e", borderRadius:"16px", padding:"14px 16px", border:"1px solid #2c2c2e", borderLeft:`4px solid ${accent}`, transition:"all 0.15s" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"10px" }}>
                   <div style={{ flex:1, minWidth:0, paddingRight:"8px" }}>
-                    <div style={{ fontWeight:700, fontSize:"16px", color:"#fff", marginBottom:"6px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.name}</div>
+                    <div style={{ fontWeight:700, fontSize:"16px", color:"#fff", marginBottom:"6px", overflowWrap:"anywhere", wordBreak:"break-word", whiteSpace:"normal", lineHeight:1.3 }}>{item.name}</div>
                     <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
                       <ExpiryBadge expiry={item.expiry} noExpiry={item.noExpiry} />
                       {item.location && (
@@ -393,8 +393,8 @@ export default function App() {
         // ── DESKTOP TABLE ──
         <div style={{ background:"#141416", borderRadius:"16px", border:"1px solid #1e1e20", overflow:"hidden" }}>
           {/* Table header */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 140px 110px 120px 150px 90px", gap:"0", padding:"10px 20px", background:"#0d0d0f", borderBottom:"1px solid #1e1e20" }}>
-            {["Item","Quantity","Expires","Category","Location",""].map((h, i) => (
+          <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 140px 110px 120px 150px 90px", gap:"0", padding:"10px 20px", background:"#0d0d0f", borderBottom:"1px solid #1e1e20" }}>
+            {["Name","Quantity","Expires","Category","Location",""].map((h, i) => (
               <div key={i} style={{ fontSize:"10px", fontWeight:700, letterSpacing:"0.12em", color:"#3a3a3c", textTransform:"uppercase", fontFamily:"monospace" }}>{h}</div>
             ))}
           </div>
@@ -406,13 +406,13 @@ export default function App() {
             const accent = item.noExpiry ? "#636366" : s.color;
             return (
               <div key={item.id}
-                style={{ display:"grid", gridTemplateColumns:"1fr 140px 110px 120px 150px 90px", gap:"0", alignItems:"center", padding:"12px 20px", borderBottom: idx < filtered.length-1 ? "1px solid #1a1a1c" : "none", borderLeft:`3px solid ${accent}`, transition:"background 0.1s", cursor:"default" }}
+                style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 140px 110px 120px 150px 90px", gap:"0", alignItems:"start", padding:"12px 20px", borderBottom: idx < filtered.length-1 ? "1px solid #1a1a1c" : "none", borderLeft:`3px solid ${accent}`, transition:"background 0.1s", cursor:"default" }}
                 onMouseEnter={e => e.currentTarget.style.background="#1a1a1c"}
                 onMouseLeave={e => e.currentTarget.style.background="transparent"}>
 
-                <div style={{ paddingRight:"16px" }}>
-                  <div style={{ fontWeight:600, fontSize:"14px", color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.name}</div>
-                  {item.notes && <div style={{ fontSize:"11px", color:"#48484a", marginTop:"2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.notes}</div>}
+                <div style={{ paddingRight:"16px", minWidth:0 }}>
+                  <div style={{ fontWeight:600, fontSize:"14px", color:"#fff", overflowWrap:"anywhere", wordBreak:"break-word", whiteSpace:"normal", lineHeight:1.3 }}>{item.name}</div>
+                  {item.notes && <div style={{ fontSize:"11px", color:"#48484a", marginTop:"2px", overflowWrap:"anywhere", wordBreak:"break-word", whiteSpace:"normal", lineHeight:1.3 }}>{item.notes}</div>}
                 </div>
 
                 <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
